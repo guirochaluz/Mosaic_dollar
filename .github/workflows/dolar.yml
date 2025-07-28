@@ -5,6 +5,10 @@ on:
     - cron: '*/1 11-20 * * 1-5'  # UTC equivalente a 08h–17h BRT
   workflow_dispatch:
 
+concurrency:
+  group: cotacao-dollar
+  cancel-in-progress: true
+
 jobs:
   run-script:
     runs-on: ubuntu-latest
