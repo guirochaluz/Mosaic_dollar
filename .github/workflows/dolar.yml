@@ -2,7 +2,7 @@ name: Cotação do Dólar
 
 on:
   schedule:
-    - cron: '*/5 11-20 * * 1-5'  # UTC equivalente a 08h–17h BRT
+    - cron: '*/1 11-20 * * 1-5'  # UTC equivalente a 08h–17h BRT
   workflow_dispatch:
 
 jobs:
