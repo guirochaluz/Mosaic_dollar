@@ -1,8 +1,15 @@
 import json
 import requests
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import re
 from bs4 import BeautifulSoup
+
+# Configurar fuso horário de São Paulo (UTC-3)
+SP_TIMEZONE = timezone(timedelta(hours=-3))
+
+def get_sao_paulo_time():
+    """Retorna o horário atual de São Paulo"""
+    return datetime.now(SP_TIMEZONE)
 
 def consultar_dolar_investing():
     """Web scraping do Investing.com"""
@@ -21,7 +28,7 @@ def consultar_dolar_investing():
             if match:
                 valor = match.group(1).replace(',', '.')
                 return {
-                    "data_extracao": datetime.now().isoformat(),
+                    "data_extracao": get_sao_paulo_time().isoformat(),
                     "valor_dolar_comercial": float(valor),
                     "fonte": "Investing.com"
                 }
@@ -53,7 +60,7 @@ def consultar_dolar_google():
                     valor = matches[0].replace(',', '')
                     if 4 <= float(valor) <= 7:  # Validação básica
                         return {
-                            "data_extracao": datetime.now().isoformat(),
+                            "data_extracao": get_sao_paulo_time().isoformat(),
                             "valor_dolar_comercial": float(valor),
                             "fonte": "Google"
                         }
@@ -79,7 +86,7 @@ def consultar_dolar_yahoo():
                 if 'meta' in result and 'regularMarketPrice' in result['meta']:
                     valor = result['meta']['regularMarketPrice']
                     return {
-                        "data_extracao": datetime.now().isoformat(),
+                        "data_extracao": get_sao_paulo_time().isoformat(),
                         "valor_dolar_comercial": round(float(valor), 4),
                         "fonte": "Yahoo Finance"
                     }
@@ -93,7 +100,9 @@ def consultar_dolar_bcb_backup():
     from datetime import datetime, timedelta
     
     for i in range(5):  # Tenta os últimos 5 dias
-        data_tentativa = (datetime.now() - timedelta(days=i)).strftime("%m-%d-%Y")
+        # Usar horário de São Paulo para determinar a data
+        data_sp = get_sao_paulo_time() - timedelta(days=i)
+        data_tentativa = data_sp.strftime("%m-%d-%Y")
         url = f"https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao='{data_tentativa}'&$format=json"
         
         try:
@@ -103,7 +112,7 @@ def consultar_dolar_bcb_backup():
                 if "value" in data and len(data["value"]) > 0:
                     cotacao = data["value"][-1]
                     return {
-                        "data_extracao": datetime.now().isoformat(),
+                        "data_extracao": get_sao_paulo_time().isoformat(),
                         "valor_dolar_comercial": cotacao["cotacaoVenda"],
                         "data_cotacao": data_tentativa,
                         "fonte": "Banco Central"
@@ -126,7 +135,7 @@ def consultar_dolar_currencylayer():
             data = response.json()
             if 'rates' in data and 'BRL' in data['rates']:
                 return {
-                    "data_extracao": datetime.now().isoformat(),
+                    "data_extracao": get_sao_paulo_time().isoformat(),
                     "valor_dolar_comercial": data['rates']['BRL'],
                     "fonte": "Fixer"
                 }
@@ -143,14 +152,16 @@ def enviar_para_power_automate(dados):
     try:
         response = requests.post(url_post, headers=headers, json=dados, timeout=30)
         print(f"✅ Enviado para Power Automate - Status: {response.status_code}")
-        return response.status_code == 200
+        return response.status_code in [200, 202]  # 200 = OK, 202 = Accepted
     except Exception as e:
         print(f"❌ Erro no envio: {e}")
         return False
 
 def main():
     """Função principal com múltiplas estratégias"""
-    print(f"🚀 Iniciando consulta da cotação do dólar - {datetime.now()}")
+    sp_time = get_sao_paulo_time()
+    print(f"🚀 Iniciando consulta da cotação do dólar - {sp_time.strftime('%d/%m/%Y %H:%M:%S')} (São Paulo)")
+    print(f"🌍 Horário UTC: {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M:%S')}")
     
     # Lista de APIs/métodos por ordem de prioridade
     estrategias = [
@@ -191,13 +202,14 @@ def main():
             print("✅ Processo concluído com sucesso!")
         else:
             print("❌ Erro no envio para Power Automate")
+            print("⚠️  Mas os dados foram coletados corretamente")
             exit(1)
     else:
         print("❌ Todas as estratégias falharam")
         
         # Criar dados de fallback com timestamp para não parar o fluxo
         dados_fallback = {
-            "data_extracao": datetime.now().isoformat(),
+            "data_extracao": get_sao_paulo_time().isoformat(),
             "valor_dolar_comercial": 0.0,
             "erro": "Todas as fontes falharam",
             "fonte": "Fallback"
