@@ -1,0 +1,10 @@
+services:
+  - type: cron
+    name: cotacao-dolar-job
+    runtime: python
+    buildCommand: ""
+    startCommand: "python main.py"
+    schedule: "0 13 * * *"  # Executa todos os dias às 13h UTC (10h em São Paulo)
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10
